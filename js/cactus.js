@@ -4,16 +4,13 @@ var SphereCordToCartesian = function (r, phi, theta) {
     var z = Math.cos(theta) * r;
     return new THREE.Vector3(x, y, z);
 }
-
 var UVSphere = function (radius, stacks, slices) {
     var geometry = new THREE.Geometry();
     var theta1, theta2, ph1, ph2;
     var vert1, vert2, vert3, vert4;
-    var i = 0;
-    var index = 0;
+    var i = 0; index = 0;
 
     for (t = 0; t < stacks; t++) {
-
         i++;
         theta1 = (t / stacks) * Math.PI;
         theta2 = ((t + 1) / stacks) * Math.PI;
@@ -59,7 +56,6 @@ var Generate = function () {
     document.body.appendChild(renderer.domElement);
 
     renderer.shadowMapEnabled = true;
-    //renderer.shadowMapSoft = true;
 
     renderer.shadowCameraNear = 3;
     renderer.shadowCameraFar = camera.far;
@@ -71,20 +67,15 @@ var Generate = function () {
     renderer.shadowMapHeight = 1024;
 
     // Setup geometry
-    var horBands = 80;
-    var vertBands = 300;
-    var radius = 1;
+    var horBands = 80; vertBands = 300; radius = 1;
     geometry = UVSphere(radius, vertBands, horBands);
 
     var spines = Math.floor(Math.random() * 12 + 4);
     var amount = radius;
-    var mod = 0;
-    var knots = 4;
+    var mod = 0; y = 0; knots = 4;
     var spikeVerts = [];
-    var y = 0;
     var verti;
     for (var i = 0; i < geometry.vertices.length; i++) {
-
         verti = geometry.vertices[i];
         verti.negate();
         if (i > vertBands * 10) {
@@ -99,10 +90,6 @@ var Generate = function () {
                 }
             }
         }
-
-
-
-
         if ((i + 1) % knots == 0) {
             verti.setLength(amount + .05);
             geometry.colors[i] = new THREE.Color(0x8DBA92);
@@ -116,12 +103,11 @@ var Generate = function () {
             verti.setLength(amount + .1);
             geometry.colors[i] = new THREE.Color(0xCCCB9B);
             if ((Math.floor(i / horBands) % spines) == 0) {
-                geometry.vertices[i].setLength(amount + .13);
-                if (i > vertBands * 2) {
+                
+            if (i > vertBands * 2) {
+                    geometry.vertices[i].setLength(amount + .13);
                     spikeVerts.push(i);
                 }
-
-
             }
             else if ((Math.floor((i + horBands) / horBands) % spines) == 0 || (Math.floor((i - horBands) / horBands) % spines) == 0) {
                 verti.setLength(amount + .115);
@@ -137,7 +123,6 @@ var Generate = function () {
 
     }
 
-    var xScale = Math.random() + 1;
     var yScale = Math.random() + .3;
     var zScale = Math.random() + 2;
     var matrix = new THREE.Matrix4();
@@ -155,12 +140,6 @@ var Generate = function () {
         var numberOfSides = 3;
         for (j = 0; j < numberOfSides; j++) {
             vertexIndex = face[faceIndices[j]];
-            if (geometry.colors[vertexIndex] == 0) {
-
-
-
-                // spikeVertsNormals.push(face.normals[j]);
-            }
             face.vertexColors[j] = geometry.colors[vertexIndex];
         }
     }
@@ -169,48 +148,36 @@ var Generate = function () {
     var material = new THREE.MeshLambertMaterial();
     material.vertexColors = THREE.VertexColors;
 
-    //var material = new THREE.MeshNormalMaterial();
-    //var material = new THREE.MeshBasicMaterial({ color: 0x80ff80 });
-    //material.opacity = .14;
-    //material.transparent = true;
-    //material.wireframe = true;
     var cube = new THREE.Mesh(geometry, material);
     cube.castShadow = true;
     cube.receiveShadow = false;
 
-    var group = new THREE.Object3D();
-
     //scene.add(cube);
     var material2 = new THREE.MeshLambertMaterial({ color: 0xF0F2C7 });
+    var transformMatrix = new THREE.Matrix4();
     for (i = 0; i < spikeVerts.length; i++) {
 
         var vert = geometry.vertices[spikeVerts[i]];
 
-        var transformMatrix = new THREE.Matrix4();
+        
         transformMatrix.set(1, 0, 0, vert.x,
                             0, 1, 0, vert.y,
                             0, 0, 1, vert.z,
                             0, 0, 0, 1);
+
         var cone = new THREE.ConeGeometry(1, 4, 12);
         cone.rotateX(Math.PI / 2);
         cone.lookAt(new THREE.Vector3(vert.x * 8, vert.y * 8, vert.z * 8));
-
         cone.scale(.01, .01, .04);
         cone.applyMatrix(transformMatrix);
-
-        //cone.vertices[0].setLength(1.2);
 
         var coneFinal = new THREE.Mesh(cone, material2);
         coneFinal.castShadow = true;
         coneFinal.receiveShadow = false;
-        coneFinal.rotation.set(coneFinal.rotation.x, coneFinal.rotation.y, 0);
-        coneFinal.updateMatrix();
         cube.add(coneFinal);
-        //scene.add(coneFinal);
     }
-    scene.matrixAutoUpdate = false;
-    scene.add(cube);
 
+    scene.add(cube);
     cube.rotateX(Math.PI / 2);
 
     var floor = new THREE.BoxGeometry(200, 1, 200);
@@ -234,8 +201,6 @@ var Generate = function () {
     var controls = new THREE.OrbitControls(camera, renderer.domElement);
     var render = function () {
         requestAnimationFrame(render);
-        //cube.rotation.z += 0.005;
-        //cube.position.x += 0.001;
         controls.update();
         renderer.render(scene, camera);
     };
