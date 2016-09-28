@@ -46,21 +46,100 @@ var UVSphere = function (radius, stacks, slices) {
     return geometry;
 }
 
+var CreateDesert = function (size, verticies)
+{
+    var randomness = 60;
+    // Start by setting the corners to random values
+    var a = Math.random() * randomness - randomness/2;
+    var b = Math.random() * randomness - randomness/2;
+    var c = Math.random() * randomness - randomness/1.5;
+    var d = Math.random() * randomness - randomness/2;
+
+    verticies[0].setZ(a);
+    verticies[size].setZ(b);
+    verticies[(size + 1) * size].setZ(c);
+    verticies[(size + 1) * (size + 1) - 1].setZ(d);
+
+    DiamondSquare(a, b, c, d, verticies, randomness / 1.5);
+}
+
+// Recursive function
+var DiamondSquare = function (a, b, c, d, verticies, random)
+{
+    var halfAcross = Math.floor(Math.sqrt(verticies.length) / 2);
+    var middle = Math.floor(verticies.length / 2);
+
+    var middleHeight = ((a + b + c + d) / 4) + (Math.random() -.5) * random;
+
+    var ab = (a + b + middleHeight) / 3 + (Math.random() -.5)  * random;
+    var ac = (a + c + middleHeight) / 3 + (Math.random() -.5)  * random;
+    var cd = (c + d + middleHeight) / 3 + (Math.random() -.5)  * random;
+    var bd = (b + d + middleHeight) / 3 + (Math.random() -.5)  * random;
+
+    verticies[middle].setZ(middleHeight);
+
+    verticies[halfAcross].setZ(ab);
+    verticies[middle - halfAcross].setZ(ac);
+    verticies[middle + halfAcross].setZ(bd);
+    verticies[verticies.length - halfAcross].setZ(cd);
+
+    if(verticies.length <= 9)
+    {
+        return;
+    }
+    var size = Math.sqrt(verticies.length);
+
+    var topLeft = [];
+    for(var i = 0; i < halfAcross + 1; i++)
+    {
+        topLeft = topLeft.concat(verticies.slice(i * size, i * size + halfAcross + 1));
+    }
+    DiamondSquare(a, ab, ac, middleHeight, topLeft, random / 1.5);
+
+    var topRight = [];
+    for (var i = 0; i < halfAcross + 1; i++) {
+        topRight = topRight.concat(verticies.slice(i * size + halfAcross, i * size + size));
+    }
+    DiamondSquare(ab, b, middleHeight, bd, topRight, random / 1.5);
+
+    var bottomLeft = [];
+    for (var i = 0; i < halfAcross + 1; i++) {
+        bottomLeft = bottomLeft.concat(verticies.slice(i * size + size * halfAcross, i * size + size * halfAcross + halfAcross + 1));
+    }
+    DiamondSquare(ac, middleHeight, c, cd, bottomLeft, random / 1.5);
+
+    var bottomRight = [];
+    for (var i = 0; i < halfAcross + 1; i++) {
+        bottomRight = bottomRight.concat(verticies.slice(i * size + size * halfAcross + halfAcross, i * size + size * halfAcross + size));
+    }
+    DiamondSquare(middleHeight, bd, cd, d, bottomRight, random / 1.5);
+}
+
 var Generate = function () {
+    var sunSet = (Math.random() > 0.9);
     // Setup scene
     var scene = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     var renderer = new THREE.WebGLRenderer();
-    renderer.setClearColor(0x7EC0EE);
+
+    if (sunSet)
+    {
+        renderer.setClearColor(0xFAD6A5);
+    }
+    else
+    {
+        renderer.setClearColor(0x7EC0EE);
+    }
+
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
     renderer.shadowMapEnabled = true;
-
+    
     renderer.shadowCameraNear = 3;
     renderer.shadowCameraFar = camera.far;
     renderer.shadowCameraFov = 50;
-
+    
     renderer.shadowMapBias = 0.0039;
     renderer.shadowMapDarkness = 1;
     renderer.shadowMapWidth = 1024;
@@ -136,6 +215,7 @@ var Generate = function () {
     var spikeVertsNormals = [];
     var faceIndices = ['a', 'b', 'c', 'd'];
     for (i = 0; i < geometry.faces.length; i++) {
+        
         face = geometry.faces[i];
         var numberOfSides = 3;
         for (j = 0; j < numberOfSides; j++) {
@@ -152,13 +232,10 @@ var Generate = function () {
     cube.castShadow = true;
     cube.receiveShadow = false;
 
-    //scene.add(cube);
     var material2 = new THREE.MeshLambertMaterial({ color: 0xF0F2C7 });
     var transformMatrix = new THREE.Matrix4();
     for (i = 0; i < spikeVerts.length; i++) {
-
         var vert = geometry.vertices[spikeVerts[i]];
-
         
         transformMatrix.set(1, 0, 0, vert.x,
                             0, 1, 0, vert.y,
@@ -180,24 +257,89 @@ var Generate = function () {
     scene.add(cube);
     cube.rotateX(Math.PI / 2);
 
-    var floor = new THREE.BoxGeometry(200, 1, 200);
-    floor.translate(0, -2.2, 0);
-    var floorMaterial = new THREE.MeshLambertMaterial({ color: 0xc2b280 });
+    var floorSegments = 16;
+    var floor = new THREE.PlaneGeometry(416, 416, floorSegments, floorSegments);
+    CreateDesert(floorSegments, floor.vertices);
+    floor.computeFaceNormals();
+    floor.computeVertexNormals(true);
+    floor.rotateX(Math.PI / 2);
+    var difference = geometry.vertices[geometry.vertices.length - 1].y - floor.vertices[floorSegments / 2 * floorSegments].y;
+    
+
+    floor.translate(0, -30, 0);
+
+
+    cube.position.set(floor.vertices[floorSegments / 2 * floorSegments].x, 0, floor.vertices[floorSegments / 2 * floorSegments].z)
+
+    while(-1 > floor.vertices[floorSegments / 2 * floorSegments].y)
+    {
+        floor.translate(0, .2, 0);
+    }
+    var floorMaterial = new THREE.MeshLambertMaterial({ color: 0xc2b280, side: THREE.DoubleSide });
+    //floorMaterial.wireframe = true;
     var floorMesh = new THREE.Mesh(floor, floorMaterial);
     floorMesh.receiveShadow = true;
     floorMesh.castShadow = false;
     scene.add(floorMesh);
 
-    var ambient = new THREE.AmbientLight(0xeeeeeee);
+    var ambient;
+    if(sunSet)
+    {
+        ambient = new THREE.AmbientLight(0xFAD6A5);
+    }
+    else
+    {
+        ambient = new THREE.AmbientLight(0xeeeeee);
+    }
+    
     scene.add(ambient);
-    var spotLight = new THREE.DirectionalLight(0xfffffff);
-    spotLight.intensity = .4;
-    spotLight.shadowDarkness = 10;
-    spotLight.position.set(-25, 40, 16);
-    scene.add(spotLight);
-    spotLight.castShadow = true;
 
-    camera.position.z = 5;
+    var dirLight = new THREE.DirectionalLight(0xfffffff);
+    dirLight.intensity = .4;
+    dirLight.shadowDarkness = 10;
+    
+    var sunHeight = Math.random() * 60 + 40;
+    if (sunSet)
+    {
+        sunHeight = Math.random() * 60 + 10;
+    }
+    dirLight.position.set(cube.position.x - 40, sunHeight, cube.position.z - 150);
+    scene.add(dirLight.target);
+    //dirLight.target.updateMatrixWorld();
+    dirLight.target.position.set(cube.position.x, cube.position.y * 100, cube.position.z);
+    scene.add(dirLight);
+    dirLight.castShadow = true;
+    dirLight.shadowCameraNear = 2;
+    //dirLight.shadow.camera.lookAt(new THREE.Vector3(cube.position.x, cube.position.y * 100, cube.position.z));
+    //dirLight.shadowCamera.target.lookAt(new THREE.Vector3(cube.position.x, cube.position.y, cube.position.z));
+    dirLight.shadowCameraFar = 200;
+    var d = 3;
+    dirLight.shadowCameraLeft = -d;
+    dirLight.shadowCameraRight = d;
+    dirLight.shadowCameraTop = d;
+    dirLight.shadowCameraBottom = -d;
+    //dirLight.shadowCameraVisible = true;
+
+    var helper = new THREE.CameraHelper(dirLight.shadow.camera);
+    helper.update();
+    //scene.add(helper);
+
+    var helper2 = new THREE.DirectionalLightHelper(dirLight, 10);
+    //scene.add(helper2);
+
+    var sphere = new THREE.SphereGeometry(30, 32, 32);
+    var sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xfff5c4 });
+    var sphereMesh = new THREE.Mesh(sphere, sphereMaterial);
+    sphereMesh.position.set(dirLight.position.x, dirLight.position.y, dirLight.position.z - 7) ;
+    scene.add(sphereMesh);
+
+    var xOffset = (Math.random() - 0.5) * 12;
+    var yOffset = (Math.random()) * 4;
+    var zOffset = (Math.random()) * 4;
+
+    camera.position.x = cube.position.x + 4 + xOffset;
+    camera.position.z = cube.position.z + 4 + zOffset;
+    camera.position.y = 2 + yOffset;
     var controls = new THREE.OrbitControls(camera, renderer.domElement);
     var render = function () {
         requestAnimationFrame(render);
