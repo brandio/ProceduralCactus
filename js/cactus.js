@@ -4,14 +4,15 @@ var SphereCordToCartesian = function (r, phi, theta) {
     var z = Math.cos(theta) * r;
     return new THREE.Vector3(x, y, z);
 }
+
+// Creates sphere geometry
 var UVSphere = function (radius, stacks, slices) {
     var geometry = new THREE.Geometry();
     var theta1, theta2, ph1, ph2;
     var vert1, vert2, vert3, vert4;
-    var i = 0; index = 0;
+    var index = 0;
 
     for (t = 0; t < stacks; t++) {
-        i++;
         theta1 = (t / stacks) * Math.PI;
         theta2 = ((t + 1) / stacks) * Math.PI;
         for (p = 0; p < slices; p++) {
@@ -46,9 +47,12 @@ var UVSphere = function (radius, stacks, slices) {
     return geometry;
 }
 
-var CreateDesert = function (size, verticies)
+var CreateDesertTerrain = function (size)
 {
-    var randomness = 60;
+    var desert = new THREE.PlaneGeometry(416, 416, size, size);
+    verticies = desert.vertices;
+    const randomness = 60;
+
     // Start by setting the corners to random values
     var a = Math.random() * randomness - randomness/2;
     var b = Math.random() * randomness - randomness/2;
@@ -61,6 +65,7 @@ var CreateDesert = function (size, verticies)
     verticies[(size + 1) * (size + 1) - 1].setZ(d);
 
     DiamondSquare(a, b, c, d, verticies, randomness / 1.5);
+    return desert;
 }
 
 // Recursive function
@@ -87,6 +92,7 @@ var DiamondSquare = function (a, b, c, d, verticies, random)
     {
         return;
     }
+
     var size = Math.sqrt(verticies.length);
 
     var topLeft = [];
@@ -116,46 +122,105 @@ var DiamondSquare = function (a, b, c, d, verticies, random)
 }
 
 var Generate = function () {
-    var sunSet = (Math.random() > 0.9);
+    
     // Setup scene
-    var scene = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    var renderer = new THREE.WebGLRenderer();
+    var canvas = document.getElementById("3dCanvas");
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas });
+    //var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    var scene = new THREE.Scene(); width = 2000; height = 1000;
 
-    if (sunSet)
-    {
-        renderer.setClearColor(0xFAD6A5);
-    }
-    else
-    {
-        renderer.setClearColor(0x7EC0EE);
-    }
-
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    var camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    
+    renderer.setSize(width, height);
+    scene.fog = new THREE.FogExp2(0xefd1b5, .002);
+    renderer.setClearColor(scene.fog.color);
     document.body.appendChild(renderer.domElement);
 
+    // Determine if sun set mode or not
+    //var sunSet = (Math.random() > 0.85);
+    var sunSet = (Math.random() > 1.85);
+
+
+    // Set up shadow map/camera
     renderer.shadowMapEnabled = true;
-    
     renderer.shadowCameraNear = 3;
     renderer.shadowCameraFar = camera.far;
     renderer.shadowCameraFov = 50;
-    
     renderer.shadowMapBias = 0.0039;
     renderer.shadowMapDarkness = 1;
     renderer.shadowMapWidth = 1024;
     renderer.shadowMapHeight = 1024;
 
-    // Setup geometry
+    // Create Background
+    var vertBands = 4;
+    if (sunSet) {
+        vertBands = 5;
+    }
+
+    var backGround = new THREE.PlaneGeometry(5000, 1000, 3, vertBands);
+    var backGroundMaterial = new THREE.MeshBasicMaterial({ vertexColors: THREE.VertexColors });
+    var backGroundMesh = new THREE.Mesh(backGround, backGroundMaterial);
+    backGround.translate(0, 440, -220);
+
+    // Light blue, Very light blue
+    const bottomSkyColors = [new THREE.Color(0x7ec0ee), new THREE.Color(0xfdffc9), new THREE.Color(0xffc180), new THREE.Color(0xddc9ff)];
+    const ambientLightColors = [new THREE.Color(0xeeeeee), new THREE.Color(0xfeffe6), new THREE.Color(0xffe6cc), new THREE.Color(0xddc9ff)];
+    const topSkyColors = [new THREE.Color(0x7ecfff), new THREE.Color(0x72b1e5), new THREE.Color(0x7aa2e8)];
+    const sunSetSkyColors = [new THREE.Color(0x7ec0ee), new THREE.Color(0xeeeeeeff), new THREE.Color(0xffc9e8)];
+    var ambientLightColor;
+
+    if (sunSet)
+    {
+        var topColor = sunSetSkyColors[Math.floor(Math.random() * sunSetSkyColors.length)];
+        var bottomColor = sunSetSkyColors[Math.floor(Math.random() * sunSetSkyColors.length)];
+        var middleColor = sunSetSkyColors[Math.floor(Math.random() * sunSetSkyColors.length)];
+        for (var i = 0; i < backGround.vertices.length; i++) {
+            backGround.colors[i] = topColor;
+            if (i >= 20) {
+                backGround.colors[i] = middleColor;
+            }
+            if (i >= 16) {
+                backGround.colors[i] = bottomColor;
+            }
+        }
+    }
+    else
+    {
+        var topColor = topSkyColors[Math.floor(Math.random() * topSkyColors.length)];
+        var bottomColorIndex = Math.floor(Math.random() * bottomSkyColors.length);
+        var bottomColor = bottomSkyColors[bottomColorIndex];
+        ambientLightColor = ambientLightColors[bottomColorIndex];
+        for (var i = 0; i < backGround.vertices.length; i++) {
+            backGround.colors[i] = topColor;
+            if (i >= 16) {
+                backGround.colors[i] = bottomColor;
+            }
+        }
+        
+    }
+
+    const faceIndices = ['a', 'b', 'c', 'd'];
+    for (i = 0; i < backGround.faces.length; i++) {
+        face = backGround.faces[i];
+        var numberOfSides = 3;
+        for (j = 0; j < numberOfSides; j++) {
+            vertexIndex = face[faceIndices[j]];
+            face.vertexColors[j] = backGround.colors[vertexIndex];
+        }
+    }
+    scene.add(backGroundMesh);
+
+    // Setup cactus
     var horBands = 80; vertBands = 300; radius = 1;
-    geometry = UVSphere(radius, vertBands, horBands);
+    var cactusGeometry = UVSphere(radius, vertBands, horBands);
 
     var spines = Math.floor(Math.random() * 12 + 4);
     var amount = radius;
     var mod = 0; y = 0; knots = 4;
     var spikeVerts = [];
     var verti;
-    for (var i = 0; i < geometry.vertices.length; i++) {
-        verti = geometry.vertices[i];
+    for (var i = 0; i < cactusGeometry.vertices.length; i++) {
+        verti = cactusGeometry.vertices[i];
         verti.negate();
         if (i > vertBands * 10) {
             amount += mod;
@@ -171,20 +236,20 @@ var Generate = function () {
         }
         if ((i + 1) % knots == 0) {
             verti.setLength(amount + .05);
-            geometry.colors[i] = new THREE.Color(0x8DBA92);
+            cactusGeometry.colors[i] = new THREE.Color(0x8DBA92);
         }
         else if ((i - 1) % knots == 0) {
             verti.setLength(amount + .05);
-            geometry.colors[i] = new THREE.Color(0x8DBA92);
+            cactusGeometry.colors[i] = new THREE.Color(0x8DBA92);
 
         }
         else if (i % knots == 0) {
             verti.setLength(amount + .1);
-            geometry.colors[i] = new THREE.Color(0xCCCB9B);
+            cactusGeometry.colors[i] = new THREE.Color(0xCCCB9B);
             if ((Math.floor(i / horBands) % spines) == 0) {
                 
             if (i > vertBands * 2) {
-                    geometry.vertices[i].setLength(amount + .13);
+                cactusGeometry.vertices[i].setLength(amount + .13);
                     spikeVerts.push(i);
                 }
             }
@@ -196,7 +261,7 @@ var Generate = function () {
             }
         }
         else {
-            geometry.colors[i] = new THREE.Color(0x739E77);
+            cactusGeometry.colors[i] = new THREE.Color(0x739E77);
             verti.setLength(amount);
         }
 
@@ -204,39 +269,31 @@ var Generate = function () {
 
     var yScale = Math.random() + .3;
     var zScale = Math.random() + 2;
-    var matrix = new THREE.Matrix4();
-    matrix.set(yScale, 0, 0, 0,
-                0, yScale, 0, 0,
-                    0, 0, zScale, 0,
-                    0, 0, 0, 1);
+    cactusGeometry.scale(yScale, yScale, zScale);
 
-    geometry.applyMatrix(matrix);
-
-    var spikeVertsNormals = [];
-    var faceIndices = ['a', 'b', 'c', 'd'];
-    for (i = 0; i < geometry.faces.length; i++) {
+    // Figure out the vertex colors
+    for (i = 0; i < cactusGeometry.faces.length; i++) {
         
-        face = geometry.faces[i];
+        face = cactusGeometry.faces[i];
         var numberOfSides = 3;
         for (j = 0; j < numberOfSides; j++) {
             vertexIndex = face[faceIndices[j]];
-            face.vertexColors[j] = geometry.colors[vertexIndex];
+            face.vertexColors[j] = cactusGeometry.colors[vertexIndex];
         }
     }
 
-    geometry.colorsNeedUpdate = true;
-    var material = new THREE.MeshLambertMaterial();
-    material.vertexColors = THREE.VertexColors;
+    var cactusMaterial = new THREE.MeshLambertMaterial();
+    cactusMaterial.vertexColors = THREE.VertexColors;
 
-    var cube = new THREE.Mesh(geometry, material);
-    cube.castShadow = true;
-    cube.receiveShadow = false;
+    var cactus = new THREE.Mesh(cactusGeometry, cactusMaterial);
+    cactus.castShadow = true;
+    cactus.receiveShadow = false;
 
-    var material2 = new THREE.MeshLambertMaterial({ color: 0xF0F2C7 });
+    // Put the spines on
+    var spikeMaterial = new THREE.MeshLambertMaterial({ color: 0xF0F2C7 });
     var transformMatrix = new THREE.Matrix4();
     for (i = 0; i < spikeVerts.length; i++) {
-        var vert = geometry.vertices[spikeVerts[i]];
-        
+        var vert = cactusGeometry.vertices[spikeVerts[i]];
         transformMatrix.set(1, 0, 0, vert.x,
                             0, 1, 0, vert.y,
                             0, 0, 1, vert.z,
@@ -248,78 +305,74 @@ var Generate = function () {
         cone.scale(.01, .01, .04);
         cone.applyMatrix(transformMatrix);
 
-        var coneFinal = new THREE.Mesh(cone, material2);
+        var coneFinal = new THREE.Mesh(cone, spikeMaterial);
         coneFinal.castShadow = true;
         coneFinal.receiveShadow = false;
-        cube.add(coneFinal);
+        cactus.add(coneFinal);
     }
 
-    scene.add(cube);
-    cube.rotateX(Math.PI / 2);
+    scene.add(cactus);
+    cactus.rotateX(Math.PI / 2);
 
+    // Create desert floor
     var floorSegments = 16;
-    var floor = new THREE.PlaneGeometry(416, 416, floorSegments, floorSegments);
-    CreateDesert(floorSegments, floor.vertices);
+    var floor = CreateDesertTerrain(floorSegments);
     floor.computeFaceNormals();
     floor.computeVertexNormals(true);
-    floor.rotateX(Math.PI / 2);
-    var difference = geometry.vertices[geometry.vertices.length - 1].y - floor.vertices[floorSegments / 2 * floorSegments].y;
-    
-
+    floor.rotateX(Math.PI / 2);    
     floor.translate(0, -30, 0);
 
-
-    cube.position.set(floor.vertices[floorSegments / 2 * floorSegments].x, 0, floor.vertices[floorSegments / 2 * floorSegments].z)
-
-    while(-1 > floor.vertices[floorSegments / 2 * floorSegments].y)
-    {
-        floor.translate(0, .2, 0);
-    }
     var floorMaterial = new THREE.MeshLambertMaterial({ color: 0xc2b280, side: THREE.DoubleSide });
-    //floorMaterial.wireframe = true;
     var floorMesh = new THREE.Mesh(floor, floorMaterial);
     floorMesh.receiveShadow = true;
     floorMesh.castShadow = false;
     scene.add(floorMesh);
 
-    var ambient;
+    // Make sure cactus is above the floor
+    cactus.position.set(floor.vertices[floorSegments / 2 * floorSegments].x, 0, floor.vertices[floorSegments / 2 * floorSegments].z)
+    while(-1 > floor.vertices[floorSegments / 2 * floorSegments].y)
+    {
+        floor.translate(0, .2, 0);
+    }
+
+    // Set up lights
+    var ambient 
     if(sunSet)
     {
-        ambient = new THREE.AmbientLight(0xFAD6A5);
+        ambient = new THREE.AmbientLight(0xFAD6A5 + ambientLightColor);
     }
     else
     {
-        ambient = new THREE.AmbientLight(0xeeeeee);
+        ambient = new THREE.AmbientLight(ambientLightColor);
     }
-    
     scene.add(ambient);
 
+    // Set up sunlight
     var dirLight = new THREE.DirectionalLight(0xfffffff);
     dirLight.intensity = .4;
     dirLight.shadowDarkness = 10;
     
-    var sunHeight = Math.random() * 60 + 40;
+    var sunHeight = Math.random() * 60 + 80;
     if (sunSet)
     {
         sunHeight = Math.random() * 60 + 10;
     }
-    dirLight.position.set(cube.position.x - 40, sunHeight, cube.position.z - 150);
+    var sunX = (Math.random() - .5) * 50;
+    dirLight.position.set(cactus.position.x + sunX, sunHeight, cactus.position.z - 150);
     scene.add(dirLight.target);
-    //dirLight.target.updateMatrixWorld();
-    dirLight.target.position.set(cube.position.x, cube.position.y * 100, cube.position.z);
+    dirLight.target.position.set(cactus.position.x, cactus.position.y * 100, cactus.position.z);
     scene.add(dirLight);
     dirLight.castShadow = true;
     dirLight.shadowCameraNear = 2;
-    //dirLight.shadow.camera.lookAt(new THREE.Vector3(cube.position.x, cube.position.y * 100, cube.position.z));
-    //dirLight.shadowCamera.target.lookAt(new THREE.Vector3(cube.position.x, cube.position.y, cube.position.z));
+
     dirLight.shadowCameraFar = 200;
     var d = 3;
     dirLight.shadowCameraLeft = -d;
     dirLight.shadowCameraRight = d;
     dirLight.shadowCameraTop = d;
     dirLight.shadowCameraBottom = -d;
-    //dirLight.shadowCameraVisible = true;
 
+    // Uncomment to add sun debug helper
     var helper = new THREE.CameraHelper(dirLight.shadow.camera);
     helper.update();
     //scene.add(helper);
@@ -327,25 +380,67 @@ var Generate = function () {
     var helper2 = new THREE.DirectionalLightHelper(dirLight, 10);
     //scene.add(helper2);
 
-    var sphere = new THREE.SphereGeometry(30, 32, 32);
-    var sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xfff5c4 });
+    // lens flares
+    //addLight(scene, 0.55, 0.9, 0.5, 0, 6, 0);
+    function addLight(scene, h, s, l, x, y, z) {
+        THREE.ImageUtils.crossOrigin = '';
+        var textureLoader = new THREE.TextureLoader();
+        var textureFlare0 = textureLoader.load("https://s3.amazonaws.com/jsfiddle1234/lensflare0.png");
+
+        var light = new THREE.PointLight(0xffffff, 1.5, 10);
+        light.color.setHSL(h, s, l);
+        light.position.set(x, y, z);
+        scene.add(light);
+        light = light;
+
+        var flareColor = new THREE.Color(0xaaaaaaa);
+        flareColor.setHSL(h, s, l + 0.5);
+
+        var lensFlare = new THREE.LensFlare(textureFlare0, 200, 0.0, THREE.AdditiveBlending, flareColor);
+
+        lensFlare.position.copy(light.position);
+        scene.add(lensFlare);
+    }
+    
+    // Create sun sphere
+    var sphere = new THREE.SphereGeometry(24, 32, 32);
+    var sphereMaterial;
+    if (sunSet)
+    {
+        var sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xfffcef });
+    }
+    else
+    {
+        var sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xfffcef });
+    }
     var sphereMesh = new THREE.Mesh(sphere, sphereMaterial);
-    sphereMesh.position.set(dirLight.position.x, dirLight.position.y, dirLight.position.z - 7) ;
+    sphereMesh.position.set(dirLight.position.x, dirLight.position.y, dirLight.position.z - 70) ;
     scene.add(sphereMesh);
 
-    var xOffset = (Math.random() - 0.5) * 12;
-    var yOffset = (Math.random()) * 4;
-    var zOffset = (Math.random()) * 4;
+    // Determine camera position
+    var xOffset = (Math.random() - 0.5) * 15;
+    var yOffset = (Math.random()) * 5;
+    var zOffset = (Math.random()) * 5 + (Math.random()) * 5;
 
-    camera.position.x = cube.position.x + 4 + xOffset;
-    camera.position.z = cube.position.z + 4 + zOffset;
+    camera.position.x = cactus.position.x;
+    camera.position.z = cactus.position.z + 4;
+    camera.lookAt(cactus);
+    camera.position.x +=  xOffset;
+    camera.position.z += zOffset;
     camera.position.y = 2 + yOffset;
-    var controls = new THREE.OrbitControls(camera, renderer.domElement);
+    //var controls = new THREE.OrbitControls(camera, renderer.domElement);
     var render = function () {
-        requestAnimationFrame(render);
-        controls.update();
+        //requestAnimationFrame(render);
+        //controls.update();
         renderer.render(scene, camera);
     };
     render();
+
+    // save canvas image as data url (png format by default)
+    var dataURL = canvas.toDataURL();
+
+    // set canvasImg image src to dataURL
+    // so it can be saved as an image
+    document.getElementById('canvasImg').src = dataURL;
 }
 Generate();
